@@ -14,8 +14,19 @@
       --text:#111;
       --focus: color-mix(in srgb, var(--border) 70%, #000 30%);
       --card: color-mix(in srgb, var(--bg) 75%, #fff 25%);
+
+      /* 화면용 크기(사용자 드래그로 조절) */
+      --timeW: 110px;
+      --dayW: 1fr;         /* 화면에서는 fr로 기본 */
+      --rowH: 36px;        /* 한 시간칸 높이 */
+
+      /* 인쇄 방향 */
       --paper: portrait; /* portrait | landscape */
-      --cornerLine: #e25a6a; /* 대각선 색(예시처럼 붉게) */
+
+      /* 인쇄용(자동으로 A4 꽉 채움) */
+      --printMargin: 8mm;
+      --printHeaderH: 14mm;
+      --printCellH: 12.7mm; /* portrait 기본값: (297-16-14)/20 ≈ 13.35mm 근처 */
     }
 
     *{ box-sizing:border-box; }
@@ -40,7 +51,7 @@
       margin: 0 auto;
       padding: 10px 12px;
       display:flex;
-      gap:12px;
+      gap:10px;
       align-items:center;
       justify-content:space-between;
       flex-wrap: wrap;
@@ -63,7 +74,6 @@
       opacity: 0.7;
       white-space: nowrap;
     }
-
     .right{
       display:flex;
       gap:8px;
@@ -165,16 +175,20 @@
       padding: 12px;
     }
 
-    /* 제목 영역(토글로 숨김/표시) */
-    .title-area{
-      display:none;
-      gap:10px;
-      align-items:center;
+    /* 제목 영역: 기본 제목은 항상 표시, 토글 ON일 때 편집/부제 표시 */
+    .title-row{
+      display:flex;
+      align-items:flex-start;
       justify-content:space-between;
+      gap:12px;
       flex-wrap: wrap;
       margin-bottom: 10px;
     }
-    .title-area.show{ display:flex; }
+    .title-stack{
+      display:flex;
+      flex-direction: column;
+      gap:4px;
+    }
     .planner-title{
       font-weight: 1000;
       font-size: 18px;
@@ -184,6 +198,42 @@
       font-size: 12px;
       opacity: .75;
       font-weight: 900;
+      min-height: 14px;
+    }
+    .title-edit{
+      display:none;
+      gap:8px;
+      align-items:center;
+      flex-wrap: wrap;
+      justify-content:flex-end;
+    }
+    .title-edit.show{ display:flex; }
+
+    /* 날짜 도구 */
+    .date-tools{
+      display:none;
+      gap:8px;
+      align-items:center;
+      flex-wrap: wrap;
+      padding: 0 12px 10px;
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+    .date-tools.show{ display:flex; }
+    .date-tools .mini{
+      font-size: 12px;
+      font-weight: 900;
+      opacity: .75;
+    }
+    .pill{
+      display:inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: #fff;
+      font-size: 12px;
+      font-weight: 1000;
+      opacity: .92;
     }
 
     /* 테이블 가로 스크롤(모바일) */
@@ -192,9 +242,10 @@
       -webkit-overflow-scrolling: touch;
       border-radius: 12px;
       background: #fff;
+      position: relative;
     }
 
-    .planner{
+    table.planner{
       width: 100%;
       min-width: 860px;
       border-collapse: collapse;
@@ -204,11 +255,16 @@
       border-radius: 12px;
       overflow: hidden;
     }
+
+    /* colgroup으로 열폭 통일 */
+    col.timecol{ width: var(--timeW); }
+    col.daycol{ width: var(--dayW); }
+
     .planner th, .planner td{
       border: 1px solid var(--border);
       text-align: center;
       vertical-align: middle;
-      height: 36px;
+      height: var(--rowH);
       padding: 6px 6px;
       font-size: 14px;
     }
@@ -220,6 +276,7 @@
       position: sticky;
       top: 0;
       z-index: 5;
+      height: calc(var(--rowH) + 6px);
     }
 
     /* 시간열 sticky */
@@ -229,17 +286,14 @@
       position: sticky;
       left: 0;
       z-index: 4;
-      width: 110px;
     }
 
-    /* 좌상단 대각선 셀 - SVG로 정확히 */
+    /* 좌상단 대각선 셀: 얇은 선(이전 스타일) */
     .planner th.corner{
       position: sticky;
       top: 0;
       left: 0;
       z-index: 6;
-      width: 110px;
-      min-width: 110px;
       padding: 0;
       background: var(--header);
     }
@@ -249,17 +303,20 @@
       height: 100%;
       min-height: 44px;
     }
-    .cornerSvg{
+    .cornerBox::after{
+      content:"";
       position:absolute;
       inset:0;
-      width:100%;
-      height:100%;
+      background: linear-gradient(135deg,
+        transparent 49.3%,
+        color-mix(in srgb, var(--border) 88%, #fff 12%) 50%,
+        transparent 50.7%);
       pointer-events:none;
     }
     .cornerTime{
       position:absolute;
       left: 10px;
-      top: 18px;
+      bottom: 6px;
       font-weight: 1000;
       font-size: 13px;
     }
@@ -271,7 +328,7 @@
       font-size: 13px;
     }
 
-    /* 요일 헤더에 날짜 표시 */
+    /* 요일 헤더 */
     .dow{
       display:flex;
       flex-direction: column;
@@ -287,6 +344,12 @@
       font-weight: 900;
       min-height: 12px;
     }
+
+    /* 주말 색 */
+    .sat .name{ color: #1565c0; }  /* 파랑 */
+    .sun .name{ color: #c62828; }  /* 빨강 */
+    .sat .date{ color: #1565c0; opacity: .85; }
+    .sun .date{ color: #c62828; opacity: .85; }
 
     /* 클릭 셀 */
     .planner td.cell{
@@ -311,13 +374,70 @@
       overflow: hidden;
     }
 
+    /* ===== 리사이즈 핸들 ===== */
+    .resize-handle{
+      position:absolute;
+      z-index: 20;
+      user-select:none;
+      touch-action:none;
+      background: transparent;
+    }
+    .resize-col{
+      top: 6px;
+      right: 8px;
+      width: 22px;
+      height: 22px;
+      border-radius: 8px;
+      border: 1px dashed var(--border);
+      background: color-mix(in srgb, white 70%, var(--bg) 30%);
+      cursor: col-resize;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size: 14px;
+      font-weight: 1000;
+      opacity: .95;
+    }
+    .resize-row{
+      bottom: 8px;
+      left: 8px;
+      width: 22px;
+      height: 22px;
+      border-radius: 8px;
+      border: 1px dashed var(--border);
+      background: color-mix(in srgb, white 70%, var(--bg) 30%);
+      cursor: row-resize;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size: 14px;
+      font-weight: 1000;
+      opacity: .95;
+    }
+    .resize-tip{
+      position:absolute;
+      top: 6px;
+      left: 6px;
+      z-index: 19;
+      font-size: 12px;
+      font-weight: 900;
+      opacity: .65;
+      background: color-mix(in srgb, white 75%, var(--bg) 25%);
+      border: 1px solid var(--border);
+      padding: 6px 8px;
+      border-radius: 10px;
+      display:none;
+    }
+    .table-wrap:hover .resize-tip{ display:block; }
+
     /* 모바일 */
     @media (max-width: 520px){
       .hint{ display:none; }
       .input{ min-width: 160px; }
-      .planner th, .planner td{ font-size: 13px; height: 34px; }
+      .planner th, .planner td{ font-size: 13px; height: var(--rowH); }
       .btn, .select{ font-size: 12px; }
       .switch{ font-size: 12px; }
+      .resize-tip{ display:none !important; }
     }
 
     /* ===== 메모장 모달 ===== */
@@ -356,16 +476,6 @@
       align-items:center;
       flex-wrap: wrap;
     }
-    .pill{
-      display:inline-block;
-      padding: 3px 8px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      background: #fff;
-      font-size: 12px;
-      font-weight: 1000;
-      opacity: .92;
-    }
     .modal-body{
       padding: 10px 12px 12px;
     }
@@ -392,21 +502,6 @@
       flex-wrap: wrap;
     }
 
-    /* ===== 날짜 설정 영역 ===== */
-    .date-tools{
-      display:none;
-      gap:8px;
-      align-items:center;
-      flex-wrap: wrap;
-      margin: 8px 0 0;
-    }
-    .date-tools.show{ display:flex; }
-    .date-tools .mini{
-      font-size: 12px;
-      font-weight: 900;
-      opacity: .75;
-    }
-
     /* ===== 인쇄 ===== */
     @media print{
       body{
@@ -414,30 +509,42 @@
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
       }
-      /* 세로 잘림 방지: margin을 조금 더 줄임 */
+
       @page{
         size: A4 var(--paper);
-        margin: 10mm;
+        margin: var(--printMargin);
       }
-      .appbar{ display:none; }
+
+      .appbar, .date-tools { display:none !important; }
+
       .wrap{ max-width:none; padding:0; }
-      .card{
-        border: none;
-        background:#fff;
-        padding:0;
-      }
+      .card{ border:none; background:#fff; padding:0; }
+
       .table-wrap{ overflow: visible; }
-      .planner{
+      table.planner{
         min-width: auto;
         border-radius: 0;
+        width: 100% !important;
       }
-      /* 인쇄에서 sticky가 이상하게 보일 수 있어서 해제 */
+
+      /* 인쇄에서는 sticky 해제 */
       .planner thead th,
       .planner td.time,
-      .planner th.corner{
-        position: static !important;
+      .planner th.corner{ position: static !important; }
+
+      /* A4 꽉 채우기: 인쇄용 높이 적용 */
+      .planner thead th{ height: var(--printHeaderH) !important; }
+      .planner th, .planner td{
+        height: var(--printCellH) !important;
+        padding: 2mm 2mm !important;
+        font-size: 11pt !important;
       }
+
+      /* 인쇄에서는 placeholder 숨김 */
       .planner td.cell.empty::before{ content:""; }
+
+      /* 리사이즈/팁 숨김 */
+      .resize-handle, .resize-tip{ display:none !important; }
     }
   </style>
 </head>
@@ -447,32 +554,32 @@
     <div class="appbar-inner">
       <div class="left">
         <div class="title">파스텔톤 주간 플래너</div>
-        <div class="hint">칸 클릭 → 메모장 입력 · 자동저장</div>
+        <div class="hint">칸 클릭 → 입력 · 드래그로 칸 크기 조절</div>
 
-        <!-- 날짜 연동 토글(예쁘게) -->
-        <label class="switch" id="dateSwitch" title="날짜 연동을 켜면 주를 선택하고 요일 옆에 날짜가 표시돼.">
+        <button class="btn" id="noticeBtn" type="button">공지</button>
+
+        <label class="switch" id="dateSwitch" title="날짜 연동을 켜면 'N년 n월 n주'를 선택할 수 있어. (월요일 시작)">
           <span class="track"><span class="knob"></span></span>
           <span>날짜 연동</span>
           <input type="checkbox" id="dateLinkToggle" />
         </label>
 
-        <!-- 제목 표시 토글 -->
-        <label class="switch" id="titleSwitch" title="제목을 보이게/숨기기">
+        <label class="switch" id="titleSwitch" title="켜면 제목 편집/기간 표시가 나타나. (기본 제목은 항상 보임)">
           <span class="track"><span class="knob"></span></span>
-          <span>제목 표시</span>
-          <input type="checkbox" id="titleToggle" />
+          <span>제목 편집</span>
+          <input type="checkbox" id="titleEditToggle" />
         </label>
       </div>
 
       <div class="right">
-        <button class="btn" id="noticeBtn" type="button">공지</button>
-
-        <select class="select" id="orientationSelect" title="인쇄 방향 선택">
+        <select class="select" id="orientationSelect" title="(PC용) 인쇄 방향 선택">
           <option value="portrait">세로(A4)</option>
           <option value="landscape">가로(A4)</option>
         </select>
 
-        <button class="btn" id="printBtn" type="button">인쇄</button>
+        <button class="btn" id="printPortraitBtn" type="button">인쇄(세로)</button>
+        <button class="btn" id="printLandscapeBtn" type="button">인쇄(가로)</button>
+
         <button class="btn" id="exportBtn" type="button">내보내기</button>
         <button class="btn" id="importBtn" type="button">가져오기</button>
         <button class="btn ghost" id="clearBtn" type="button">현재 테마 지우기</button>
@@ -480,53 +587,64 @@
         <div class="theme-bar" id="themeBar"></div>
       </div>
     </div>
-
-    <!-- 날짜 연동 켜졌을 때 나오는 툴 -->
-    <div class="appbar-inner" style="padding-top:0;">
-      <div class="date-tools" id="dateTools">
-        <span class="mini">주 선택:</span>
-        <input class="select" id="weekPicker" type="week" />
-        <span class="mini">또는 기준 날짜:</span>
-        <input class="select" id="datePicker" type="date" />
-        <span class="mini" id="weekRangeText"></span>
-      </div>
-    </div>
   </header>
+
+  <!-- 날짜 연동 도구(ON일 때만) -->
+  <div class="date-tools" id="dateTools">
+    <span class="mini">주 선택:</span>
+    <select class="select" id="yearSel"></select>
+    <select class="select" id="monthSel"></select>
+    <select class="select" id="weekSel"></select>
+    <span class="pill" id="weekRangeText"></span>
+  </div>
 
   <main class="wrap">
     <div class="card">
-      <!-- 제목 영역 -->
-      <div class="title-area" id="titleArea">
-        <div>
+      <!-- 제목은 항상 표시 -->
+      <div class="title-row">
+        <div class="title-stack">
           <div class="planner-title" id="plannerTitleText">주간 플래너</div>
           <div class="meta" id="plannerMetaText"></div>
         </div>
-        <input class="input" id="titleInput" placeholder="제목 변경 가능" />
+
+        <!-- 제목 편집 토글 ON일 때만 -->
+        <div class="title-edit" id="titleEdit">
+          <input class="input" id="titleInput" placeholder="제목 변경 가능" />
+        </div>
       </div>
 
-      <div class="table-wrap">
+      <div class="table-wrap" id="tableWrap">
+        <div class="resize-tip">↔ 오른쪽 아이콘: 요일 열 너비 · ↕ 아래 아이콘: 시간 칸 높이</div>
+
+        <!-- 열/행 리사이즈 핸들 -->
+        <div class="resize-handle resize-col" id="colResize" title="요일 열 너비 조절">↔</div>
+        <div class="resize-handle resize-row" id="rowResize" title="시간 칸 높이 조절">↕</div>
+
         <table class="planner" aria-label="주간 플래너">
+          <colgroup>
+            <col class="timecol" />
+            <col class="daycol" span="7" />
+          </colgroup>
+
           <thead>
             <tr>
               <th class="corner">
                 <div class="cornerBox">
-                  <!-- 예시처럼 굵은 대각선 -->
-                  <svg class="cornerSvg" viewBox="0 0 110 44" preserveAspectRatio="none" aria-hidden="true">
-                    <line x1="0" y1="0" x2="110" y2="44" stroke="var(--cornerLine)" stroke-width="6" />
-                  </svg>
                   <div class="cornerDay">요일</div>
                   <div class="cornerTime">시간</div>
                 </div>
               </th>
+
               <th><div class="dow"><div class="name">월</div><div class="date" data-dow="0"></div></div></th>
               <th><div class="dow"><div class="name">화</div><div class="date" data-dow="1"></div></div></th>
               <th><div class="dow"><div class="name">수</div><div class="date" data-dow="2"></div></div></th>
               <th><div class="dow"><div class="name">목</div><div class="date" data-dow="3"></div></div></th>
               <th><div class="dow"><div class="name">금</div><div class="date" data-dow="4"></div></div></th>
-              <th><div class="dow"><div class="name">토</div><div class="date" data-dow="5"></div></div></th>
-              <th><div class="dow"><div class="name">일</div><div class="date" data-dow="6"></div></div></th>
+              <th class="sat"><div class="dow"><div class="name">토</div><div class="date" data-dow="5"></div></div></th>
+              <th class="sun"><div class="dow"><div class="name">일</div><div class="date" data-dow="6"></div></div></th>
             </tr>
           </thead>
+
           <tbody id="rows"></tbody>
         </table>
       </div>
@@ -544,7 +662,7 @@
         <button class="btn" id="closeMemo" type="button">닫기</button>
       </div>
       <div class="modal-body">
-        <textarea id="memoText" placeholder="여기에 내용을 입력해줘. (자동저장)"></textarea>
+        <textarea id="memoText" placeholder="여기에 내용을 입력해줘."></textarea>
         <div class="modal-actions">
           <button class="btn ghost" id="clearCellBtn" type="button">이 칸 비우기</button>
           <button class="btn" id="saveMemo" type="button">저장</button>
@@ -578,10 +696,16 @@
     // ===== storage keys =====
     const STORAGE_THEME_KEY = "planner_theme";
     const STORAGE_TITLE_KEY = "planner_custom_title";
-    const STORAGE_TITLE_SHOW_KEY = "planner_title_show";
+    const STORAGE_TITLE_EDIT_KEY = "planner_title_edit_on";
+
     const STORAGE_DATE_LINK_KEY = "planner_date_link_enabled";
-    const STORAGE_WEEK_KEY = "planner_selected_week"; // 2026-W05
+    const STORAGE_MONTHWEEK_KEY = "planner_monthweek"; // "YYYY-MM-Wn" 예: "2026-02-W3"
+
     const STORAGE_ORIENTATION_KEY = "planner_print_orientation";
+
+    const STORAGE_TIMEW_KEY = "planner_timeW";
+    const STORAGE_DAYW_KEY = "planner_dayW";
+    const STORAGE_ROWH_KEY = "planner_rowH";
 
     const dataKey = (themeKey) => `planner_data_${themeKey}`;
 
@@ -591,42 +715,46 @@
     const rowsEl = document.getElementById("rows");
     const themeBar = document.getElementById("themeBar");
 
-    // switches
-    const dateLinkToggle = document.getElementById("dateLinkToggle");
-    const dateSwitch = document.getElementById("dateSwitch");
-    const titleToggle = document.getElementById("titleToggle");
-    const titleSwitch = document.getElementById("titleSwitch");
-
-    // date tools
-    const dateTools = document.getElementById("dateTools");
-    const weekPicker = document.getElementById("weekPicker");
-    const datePicker = document.getElementById("datePicker");
-    const weekRangeText = document.getElementById("weekRangeText");
-
-    // title area
-    const titleArea = document.getElementById("titleArea");
     const plannerTitleText = document.getElementById("plannerTitleText");
-    const plannerMetaText = document.getElementById("plannerMetaText");
-    const titleInput = document.getElementById("titleInput");
+    const plannerMetaText  = document.getElementById("plannerMetaText");
+    const titleInput       = document.getElementById("titleInput");
+    const titleEdit        = document.getElementById("titleEdit");
+
+    const dateTools        = document.getElementById("dateTools");
+    const yearSel          = document.getElementById("yearSel");
+    const monthSel         = document.getElementById("monthSel");
+    const weekSel          = document.getElementById("weekSel");
+    const weekRangeText    = document.getElementById("weekRangeText");
+
+    const dateLinkToggle   = document.getElementById("dateLinkToggle");
+    const dateSwitch       = document.getElementById("dateSwitch");
+
+    const titleEditToggle  = document.getElementById("titleEditToggle");
+    const titleSwitch      = document.getElementById("titleSwitch");
+
+    const orientationSelect = document.getElementById("orientationSelect");
+    const printPortraitBtn  = document.getElementById("printPortraitBtn");
+    const printLandscapeBtn = document.getElementById("printLandscapeBtn");
+
+    const colResize = document.getElementById("colResize");
+    const rowResize = document.getElementById("rowResize");
+    const tableWrap = document.getElementById("tableWrap");
 
     // modal
     const memoBackdrop = document.getElementById("memoBackdrop");
     const memoText = document.getElementById("memoText");
     const pillTime = document.getElementById("pillTime");
-    const pillDay = document.getElementById("pillDay");
+    const pillDay  = document.getElementById("pillDay");
     const closeMemo = document.getElementById("closeMemo");
     const saveMemoBtn = document.getElementById("saveMemo");
     const clearCellBtn = document.getElementById("clearCellBtn");
 
     // import/export
-    const importBtn = document.getElementById("importBtn");
     const exportBtn = document.getElementById("exportBtn");
+    const importBtn = document.getElementById("importBtn");
     const importFile = document.getElementById("importFile");
 
-    // print
-    const orientationSelect = document.getElementById("orientationSelect");
-
-    let activeCell = null; // {r,c,td}
+    let activeCell = null;
 
     // ===== utils =====
     function cellId(r,c){ return `${r}-${c}`; }
@@ -646,7 +774,7 @@
       return `${m}월 ${day}일`;
     }
 
-    // Monday(월요일) 기준으로 한 주 시작 계산
+    // 월요일 시작(월=0) 기준 Monday 얻기
     function getMondayFromDate(d){
       const date = new Date(d);
       const dow = (date.getDay() + 6) % 7; // Mon=0
@@ -655,31 +783,28 @@
       return date;
     }
 
-    // ISO week -> Monday date
-    function isoWeekToMonday(weekStr){
-      const [yPart, wPart] = weekStr.split("-W");
-      const year = Number(yPart);
-      const week = Number(wPart);
-
-      const jan4 = new Date(year, 0, 4);
-      const dayOfWeek = (jan4.getDay() + 6) % 7;
-      const mondayWeek1 = new Date(jan4);
-      mondayWeek1.setDate(jan4.getDate() - dayOfWeek);
-
-      const monday = new Date(mondayWeek1);
-      monday.setDate(mondayWeek1.getDate() + (week - 1) * 7);
-      monday.setHours(0,0,0,0);
-      return monday;
+    // ====== "N년 n월 n주" 계산 규칙 ======
+    // week1 = "그 달 1일이 포함된 주" (월요일 시작)
+    // => 이전달 30/31과 다음달 1일이 같은 주면 다음달 1주가 됨(요구 규칙 자동 충족)
+    function getMonthWeek1Monday(year, month1to12){
+      const first = new Date(year, month1to12-1, 1);
+      return getMondayFromDate(first);
     }
-
-    // 월 몇 주(간단 일관 버전)
-    function monthWeekLabel(monday){
-      const month = monday.getMonth();
-      const firstDay = new Date(monday.getFullYear(), month, 1);
-      const firstMonday = getMondayFromDate(firstDay);
-      const diffDays = Math.round((monday - firstMonday) / (1000*60*60*24));
-      const weekNo = Math.floor(diffDays / 7) + 1;
-      return `${month+1}월 ${weekNo}주`;
+    function getMonthWeekCount(year, month1to12){
+      const week1Mon = getMonthWeek1Monday(year, month1to12);
+      const last = new Date(year, month1to12, 0); // last day of month
+      const lastMon = getMondayFromDate(last);
+      const diffDays = Math.round((lastMon - week1Mon) / (1000*60*60*24));
+      return Math.floor(diffDays/7) + 1;
+    }
+    function getMondayByMonthWeek(year, month1to12, weekNo){
+      const week1Mon = getMonthWeek1Monday(year, month1to12);
+      const mon = new Date(week1Mon);
+      mon.setDate(week1Mon.getDate() + (weekNo-1)*7);
+      return mon;
+    }
+    function labelMonthWeek(year, month1to12, weekNo){
+      return `${year}년 ${month1to12}월 ${weekNo}주`;
     }
 
     // ===== grid =====
@@ -699,7 +824,6 @@
       td.querySelector(".preview").textContent = value || "";
       td.classList.toggle("empty", !value || value.trim()==="");
     }
-
     function loadAllCells(){
       const data = getData(currentThemeKey);
       document.querySelectorAll("td.cell").forEach(td=>{
@@ -707,7 +831,6 @@
         updateCellDisplay(td, data[cellId(r,c)] || "");
       });
     }
-
     function saveCellValue(r,c,value){
       const data = getData(currentThemeKey);
       const id = cellId(r,c);
@@ -715,7 +838,6 @@
       if(v.trim()==="") delete data[id];
       else data[id] = v;
       setData(data, currentThemeKey);
-
       const td = document.querySelector(`td.cell[data-r="${r}"][data-c="${c}"]`);
       if(td) updateCellDisplay(td, v);
     }
@@ -793,56 +915,48 @@
       }
     });
 
-    // ===== switches UI helper =====
+    // ===== switches =====
     function setSwitchVisual(wrapper, checked){
       wrapper.classList.toggle("on", checked);
     }
 
-    // ===== title show/hide =====
-    function setTitleVisible(show){
-      titleArea.classList.toggle("show", show);
-      titleToggle.checked = show;
-      setSwitchVisual(titleSwitch, show);
-      localStorage.setItem(STORAGE_TITLE_SHOW_KEY, show ? "1" : "0");
-    }
-
-    // 기본값: 제목 숨김(OFF) — 원하면 여기 true로 바꾸면 기본 ON
-    const defaultTitleShow = false;
-
+    // ===== title =====
     function initTitle(){
       const savedTitle = localStorage.getItem(STORAGE_TITLE_KEY) || "";
       titleInput.value = savedTitle;
-      plannerTitleText.textContent = savedTitle || "주간 플래너";
-      plannerMetaText.textContent = "";
+      plannerTitleText.textContent = savedTitle.trim() ? savedTitle : "주간 플래너";
 
-      const show = (localStorage.getItem(STORAGE_TITLE_SHOW_KEY) ?? (defaultTitleShow ? "1":"0")) === "1";
-      setTitleVisible(show);
+      const editOn = localStorage.getItem(STORAGE_TITLE_EDIT_KEY) === "1";
+      titleEditToggle.checked = editOn;
+      setSwitchVisual(titleSwitch, editOn);
+      titleEdit.classList.toggle("show", editOn);
     }
 
     titleInput.addEventListener("input", ()=>{
       localStorage.setItem(STORAGE_TITLE_KEY, titleInput.value);
-      plannerTitleText.textContent = titleInput.value || "주간 플래너";
+      plannerTitleText.textContent = titleInput.value.trim() ? titleInput.value : "주간 플래너";
     });
 
     titleSwitch.addEventListener("click", ()=>{
-      setTitleVisible(!titleToggle.checked);
+      const next = !titleEditToggle.checked;
+      titleEditToggle.checked = next;
+      localStorage.setItem(STORAGE_TITLE_EDIT_KEY, next ? "1":"0");
+      setSwitchVisual(titleSwitch, next);
+      titleEdit.classList.toggle("show", next);
     });
 
-    // ===== date link =====
-    function setDateToolsVisible(show){
-      dateTools.classList.toggle("show", show);
-    }
-
+    // ===== 날짜 연동 =====
     function clearHeaderDates(){
       document.querySelectorAll(".date[data-dow]").forEach(el => el.textContent = "");
       weekRangeText.textContent = "";
+      plannerMetaText.textContent = "";
     }
 
     function applyWeekMonday(monday){
       const start = new Date(monday);
       const end = new Date(monday); end.setDate(monday.getDate()+6);
 
-      // 요일 옆 날짜
+      // 요일 옆 날짜 표시 (월~일)
       document.querySelectorAll(".date[data-dow]").forEach(el=>{
         const i = Number(el.dataset.dow);
         const d = new Date(monday);
@@ -851,68 +965,142 @@
       });
 
       weekRangeText.textContent = `${fmtKoreanDate(start)} ~ ${fmtKoreanDate(end)}`;
+      plannerMetaText.textContent = `기간: ${fmtKoreanDate(start)} ~ ${fmtKoreanDate(end)}`;
 
-      // 제목 자동 생성: 사용자가 제목을 직접 입력하지 않았을 때만
+      // 자동 제목(사용자 커스텀 제목이 없을 때만)
       const custom = (localStorage.getItem(STORAGE_TITLE_KEY) || "").trim();
-      const autoTitle = `${monthWeekLabel(monday)} 플래너(${fmtKoreanDate(start)} ~ ${fmtKoreanDate(end)})`;
-
       if(!custom){
+        // 선택한 month/week는 sel에서 계산
+        const y = Number(yearSel.value);
+        const m = Number(monthSel.value);
+        const w = Number(weekSel.value);
+        const autoTitle = `${m}월 ${w}주 플래너(${fmtKoreanDate(start)} ~ ${fmtKoreanDate(end)})`;
         plannerTitleText.textContent = autoTitle;
         titleInput.value = autoTitle;
       }
-      plannerMetaText.textContent = `기간: ${fmtKoreanDate(start)} ~ ${fmtKoreanDate(end)}`;
     }
+
+    function populateYearMonthWeekUI(){
+      // year: 현재년도 기준 ±3년
+      const now = new Date();
+      const cy = now.getFullYear();
+      yearSel.innerHTML = "";
+      for(let y = cy-3; y <= cy+3; y++){
+        const opt = document.createElement("option");
+        opt.value = String(y);
+        opt.textContent = `${y}년`;
+        yearSel.appendChild(opt);
+      }
+
+      monthSel.innerHTML = "";
+      for(let m=1;m<=12;m++){
+        const opt = document.createElement("option");
+        opt.value = String(m);
+        opt.textContent = `${m}월`;
+        monthSel.appendChild(opt);
+      }
+
+      // 기본값
+      yearSel.value = String(cy);
+      monthSel.value = String(now.getMonth()+1);
+
+      refreshWeekOptions();
+    }
+
+    function refreshWeekOptions(){
+      const y = Number(yearSel.value);
+      const m = Number(monthSel.value);
+      const count = getMonthWeekCount(y, m);
+
+      weekSel.innerHTML = "";
+      for(let w=1; w<=count; w++){
+        const opt = document.createElement("option");
+        opt.value = String(w);
+        opt.textContent = `${w}주`;
+        weekSel.appendChild(opt);
+      }
+
+      // 저장된 값 우선
+      const saved = localStorage.getItem(STORAGE_MONTHWEEK_KEY);
+      if(saved){
+        const [sy, sm, sw] = saved.split("-");
+        const wNo = Number(sw.replace("W",""));
+        if(Number(sy)===y && Number(sm)===m && wNo>=1 && wNo<=count){
+          weekSel.value = String(wNo);
+          return;
+        }
+      }
+
+      // 아니면 "오늘이 속한 주"를 해당 달 기준으로 찾기
+      const todayMon = getMondayFromDate(new Date());
+      const week1Mon = getMonthWeek1Monday(y,m);
+      const diffDays = Math.round((todayMon - week1Mon) / (1000*60*60*24));
+      let guess = Math.floor(diffDays/7)+1;
+      if(guess < 1) guess = 1;
+      if(guess > count) guess = count;
+      weekSel.value = String(guess);
+    }
+
+    function saveAndApplyMonthWeek(){
+      const y = Number(yearSel.value);
+      const m = Number(monthSel.value);
+      const w = Number(weekSel.value);
+
+      localStorage.setItem(STORAGE_MONTHWEEK_KEY, `${y}-${pad2(m)}-W${w}`);
+
+      const monday = getMondayByMonthWeek(y,m,w);
+      applyWeekMonday(monday);
+    }
+
+    yearSel.addEventListener("change", ()=>{
+      refreshWeekOptions();
+      saveAndApplyMonthWeek();
+    });
+    monthSel.addEventListener("change", ()=>{
+      refreshWeekOptions();
+      saveAndApplyMonthWeek();
+    });
+    weekSel.addEventListener("change", saveAndApplyMonthWeek);
 
     function enableDateLink(enable){
       dateLinkToggle.checked = enable;
       setSwitchVisual(dateSwitch, enable);
       localStorage.setItem(STORAGE_DATE_LINK_KEY, enable ? "1" : "0");
-      setDateToolsVisible(enable);
+      dateTools.classList.toggle("show", enable);
 
       if(!enable){
         clearHeaderDates();
-        plannerMetaText.textContent = "";
         return;
       }
 
-      // 저장된 week가 있으면 우선 적용
-      const weekStr = localStorage.getItem(STORAGE_WEEK_KEY);
-      if(weekStr){
-        weekPicker.value = weekStr;
-        const monday = isoWeekToMonday(weekStr);
-        applyWeekMonday(monday);
+      // UI 준비 + 저장값 적용
+      if(!yearSel.options.length) populateYearMonthWeekUI();
+
+      // saved monthweek 적용
+      const saved = localStorage.getItem(STORAGE_MONTHWEEK_KEY);
+      if(saved){
+        const [sy, sm, sw] = saved.split("-");
+        const y = Number(sy);
+        const m = Number(sm);
+        const w = Number(sw.replace("W",""));
+        yearSel.value = String(y);
+        monthSel.value = String(m);
+        refreshWeekOptions();
+        weekSel.value = String(w);
       }else{
-        // 없으면 오늘 기준으로 주 자동 적용
-        const monday = getMondayFromDate(new Date());
-        applyWeekMonday(monday);
+        refreshWeekOptions();
       }
+
+      saveAndApplyMonthWeek();
     }
 
-    // week 선택(지원되는 브라우저)
-    weekPicker.addEventListener("change", ()=>{
-      if(!weekPicker.value) return;
-      localStorage.setItem(STORAGE_WEEK_KEY, weekPicker.value);
-      const monday = isoWeekToMonday(weekPicker.value);
-      applyWeekMonday(monday);
-    });
-
-    // date 선택(모든 브라우저 대안)
-    datePicker.addEventListener("change", ()=>{
-      if(!datePicker.value) return;
-      const d = new Date(datePicker.value + "T00:00:00");
-      const monday = getMondayFromDate(d);
-      // week 저장은 ISO week로 정확히 만들기 까다로워서(표준/계산 필요)
-      // 여기서는 week 저장 대신, 그냥 적용만 함.
-      applyWeekMonday(monday);
-    });
-
-    // 토글 클릭
     dateSwitch.addEventListener("click", ()=>{
       enableDateLink(!dateLinkToggle.checked);
     });
 
     function initDateLink(){
       const enabled = localStorage.getItem(STORAGE_DATE_LINK_KEY) === "1";
+      if(enabled && !yearSel.options.length) populateYearMonthWeekUI();
       enableDateLink(enabled);
     }
 
@@ -920,25 +1108,43 @@
     function applyOrientation(value){
       document.documentElement.style.setProperty("--paper", value);
       localStorage.setItem(STORAGE_ORIENTATION_KEY, value);
+
+      // 인쇄 칸 높이 자동 계산(대략값): A4에서 20칸 + 헤더가 1장에 꽉 차게
+      // portrait usable height ≈ 297 - 2*margin(mm)
+      // landscape usable height ≈ 210 - 2*margin(mm)
+      const margin = 8; // mm
+      const usable = (value === "landscape") ? (210 - 2*margin) : (297 - 2*margin);
+      const header = (value === "landscape") ? 13 : 14; // mm
+      const cellH = (usable - header) / 20;
+
+      document.documentElement.style.setProperty("--printMargin", `${margin}mm`);
+      document.documentElement.style.setProperty("--printHeaderH", `${header}mm`);
+      document.documentElement.style.setProperty("--printCellH", `${cellH.toFixed(2)}mm`);
     }
+
     orientationSelect.addEventListener("change", ()=>{
       applyOrientation(orientationSelect.value);
     });
+
     function initOrientation(){
       const saved = localStorage.getItem(STORAGE_ORIENTATION_KEY) || "portrait";
       orientationSelect.value = saved;
       applyOrientation(saved);
     }
 
+    function printWith(value){
+      applyOrientation(value);
+      // 배경 그래픽 안내 (강제 불가)
+      alert("색상 배경이 그대로 나오려면 인쇄 설정에서 '배경 그래픽(배경색/이미지)'을 켜야 해.\n모바일은 인쇄 앱에서 방향을 무시할 수 있어. 그럴 땐 인쇄 화면에서 수동 방향 변경!");
+      window.print();
+    }
+
+    printPortraitBtn.addEventListener("click", ()=> printWith("portrait"));
+    printLandscapeBtn.addEventListener("click", ()=> printWith("landscape"));
+
     // ===== notice =====
     document.getElementById("noticeBtn").addEventListener("click", ()=>{
       alert("준비중");
-    });
-
-    // ===== print =====
-    document.getElementById("printBtn").addEventListener("click", ()=>{
-      alert("색상이 그대로 나오려면 인쇄 설정에서 '배경 그래픽(배경색/이미지)'을 켜야 해.\n(브라우저가 자동으로 켤 수는 없어!)");
-      window.print();
     });
 
     // ===== clear theme =====
@@ -953,15 +1159,18 @@
     exportBtn.addEventListener("click", ()=>{
       const payload = {
         app: "pasteltone-weekly-planner",
-        version: 3,
+        version: 4,
         exportedAt: new Date().toISOString(),
         currentTheme: currentThemeKey,
         settings: {
           title: localStorage.getItem(STORAGE_TITLE_KEY) || "",
-          titleShow: localStorage.getItem(STORAGE_TITLE_SHOW_KEY) || "0",
+          titleEditOn: localStorage.getItem(STORAGE_TITLE_EDIT_KEY) || "0",
           dateLinkEnabled: localStorage.getItem(STORAGE_DATE_LINK_KEY) || "0",
-          selectedWeek: localStorage.getItem(STORAGE_WEEK_KEY) || "",
+          monthWeek: localStorage.getItem(STORAGE_MONTHWEEK_KEY) || "",
           orientation: localStorage.getItem(STORAGE_ORIENTATION_KEY) || "portrait",
+          timeW: localStorage.getItem(STORAGE_TIMEW_KEY) || "",
+          dayW: localStorage.getItem(STORAGE_DAYW_KEY) || "",
+          rowH: localStorage.getItem(STORAGE_ROWH_KEY) || "",
         },
         dataByTheme: {}
       };
@@ -971,9 +1180,9 @@
       const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      const date = new Date();
+      const d = new Date();
       a.href = url;
-      a.download = `weekly_planner_backup_${date.getFullYear()}${pad2(date.getMonth()+1)}${pad2(date.getDate())}.json`;
+      a.download = `weekly_planner_backup_${d.getFullYear()}${pad2(d.getMonth()+1)}${pad2(d.getDate())}.json`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -992,12 +1201,10 @@
       try{
         const text = await file.text();
         const json = JSON.parse(text);
-
         if(!json || typeof json !== "object" || !json.dataByTheme){
           alert("형식이 올바르지 않은 JSON이야.");
           return;
         }
-
         const ok = confirm("가져오면 현재 저장된 내용이 덮어쓰기될 수 있어. 진행할까?");
         if(!ok) return;
 
@@ -1010,12 +1217,17 @@
 
         if(json.settings){
           localStorage.setItem(STORAGE_TITLE_KEY, json.settings.title || "");
-          localStorage.setItem(STORAGE_TITLE_SHOW_KEY, json.settings.titleShow || "0");
+          localStorage.setItem(STORAGE_TITLE_EDIT_KEY, json.settings.titleEditOn || "0");
           localStorage.setItem(STORAGE_DATE_LINK_KEY, json.settings.dateLinkEnabled || "0");
-          localStorage.setItem(STORAGE_WEEK_KEY, json.settings.selectedWeek || "");
+          localStorage.setItem(STORAGE_MONTHWEEK_KEY, json.settings.monthWeek || "");
           localStorage.setItem(STORAGE_ORIENTATION_KEY, json.settings.orientation || "portrait");
+
+          if(json.settings.timeW) localStorage.setItem(STORAGE_TIMEW_KEY, json.settings.timeW);
+          if(json.settings.dayW)  localStorage.setItem(STORAGE_DAYW_KEY, json.settings.dayW);
+          if(json.settings.rowH)  localStorage.setItem(STORAGE_ROWH_KEY, json.settings.rowH);
         }
 
+        initSizeFromStorage();
         initTitle();
         initOrientation();
         initDateLink();
@@ -1031,10 +1243,96 @@
       }
     });
 
+    // ===== 리사이즈(엑셀처럼) =====
+    function px(n){ return `${Math.round(n)}px`; }
+
+    function initSizeFromStorage(){
+      const timeW = localStorage.getItem(STORAGE_TIMEW_KEY);
+      const dayW  = localStorage.getItem(STORAGE_DAYW_KEY);
+      const rowH  = localStorage.getItem(STORAGE_ROWH_KEY);
+
+      if(timeW) document.documentElement.style.setProperty("--timeW", timeW);
+      if(dayW)  document.documentElement.style.setProperty("--dayW", dayW);
+      if(rowH)  document.documentElement.style.setProperty("--rowH", rowH);
+
+      // dayW가 없으면 화면 기본은 fr, 사용자 조정하면 px로 고정됨
+    }
+
+    function startDrag(el, axis){
+      let startX=0, startY=0, startVal=0;
+
+      function onDown(e){
+        e.preventDefault();
+        const p = (e.touches && e.touches[0]) ? e.touches[0] : e;
+        startX = p.clientX;
+        startY = p.clientY;
+
+        if(axis === "col"){
+          // 현재 daycol이 fr이면 계산된 px로 시작
+          const ths = document.querySelectorAll("table.planner thead th");
+          // ths[1]이 월 칼럼
+          const w = ths[1].getBoundingClientRect().width;
+          startVal = w;
+        }else{
+          const td = document.querySelector("table.planner td.time");
+          startVal = td.getBoundingClientRect().height;
+        }
+
+        window.addEventListener("mousemove", onMove, {passive:false});
+        window.addEventListener("mouseup", onUp);
+        window.addEventListener("touchmove", onMove, {passive:false});
+        window.addEventListener("touchend", onUp);
+      }
+
+      function onMove(e){
+        e.preventDefault();
+        const p = (e.touches && e.touches[0]) ? e.touches[0] : e;
+
+        if(axis === "col"){
+          const dx = p.clientX - startX;
+          let next = startVal + dx;
+          next = Math.max(70, Math.min(260, next)); // 제한
+          const val = px(next);
+          document.documentElement.style.setProperty("--dayW", val);
+          localStorage.setItem(STORAGE_DAYW_KEY, val);
+        }else{
+          const dy = p.clientY - startY;
+          let next = startVal + dy;
+          next = Math.max(26, Math.min(90, next)); // 제한
+          const val = px(next);
+          document.documentElement.style.setProperty("--rowH", val);
+          localStorage.setItem(STORAGE_ROWH_KEY, val);
+        }
+      }
+
+      function onUp(){
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+        window.removeEventListener("touchmove", onMove);
+        window.removeEventListener("touchend", onUp);
+      }
+
+      el.addEventListener("mousedown", onDown);
+      el.addEventListener("touchstart", onDown, {passive:false});
+    }
+
+    // 요일 열 너비 조절(모든 요일 동일)
+    startDrag(colResize, "col");
+    // 시간칸 높이 조절(모든 시간 동일)
+    startDrag(rowResize, "row");
+
     // ===== init =====
+    function initSwitchVisuals(){
+      setSwitchVisual(dateSwitch, dateLinkToggle.checked);
+      setSwitchVisual(titleSwitch, titleEditToggle.checked);
+    }
+
+    initSizeFromStorage();
     initTitle();
     initOrientation();
     initDateLink();
+    initSwitchVisuals();
+
     applyTheme(localStorage.getItem(STORAGE_THEME_KEY) || "pink");
   </script>
 </body>
